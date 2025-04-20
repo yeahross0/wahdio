@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en-US">
+
+<head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+</head>
+
+<body>
+    <script type="module">
+        import init, { play_music } from "./pkg/wahdio.js";
+
+        window.sound_init = init
+        window.play_music = play_music
+    </script>
+    <script>
+
+        // _fetch function taken from timidity by Feross Aboukhadijeh
+        // https://github.com/feross/timidity
+        async function _fetch(url) {
+            const opts = {
+                mode: 'cors',
+                credentials: 'same-origin'
+            }
+            const response = await window.fetch(url, opts)
+            if (response.status !== 200) {
+                throw new Error(`Could not load ${url}`)
+            };
+
+            const arrayBuffer = await response.arrayBuffer()
+            const buf = new Uint8Array(arrayBuffer)
+            return buf
+        }
+
+        async function myFunction() {
+            //let sf2Data = await _fetch("WarioWare_D.I.Y._Soundfont.sf2");
+            let mioData = await _fetch("Starwing.mio");
+            let ramData = await _fetch("ram.bin");
+            window.sound_init().then(() => {
+                console.log("HERE")
+                let s = window.play_music(ramData, mioData);
+                console.log(s);
+            });
+        }</script>
+    <button onclick="myFunction()">Click me</button>
+
+</body>
+
+</html>
