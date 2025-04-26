@@ -1,4 +1,81 @@
-//const SPUChannel::ADPCMIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
+/*
+    Copyright 2016-2024 melonDS team
+
+    This file is adapted from melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
+use std::{
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
+
+// WARNING: SOME OF THESE VALUES ARE INCORRECT FOR CONVENIENCE
+// to add an echo originally added in code
+const PSG_TABLE: [[i16; 8]; 8] = [
+    // Bong, Bing
+    [
+        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF,
+    ],
+    // Ding, Ting
+    [
+        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+    ],
+    //[
+    //    -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+    //],
+    // Pong Special
+    [-29490, -22937, -26214, -26214, 29490, 22937, 26214, 26214],
+    // Pong, Fah, Bling[0]
+    [
+        -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+    ],
+    //[
+    //    -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+    //],
+    //[
+    //    -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+    //],
+    //[
+    //    -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FF,
+    //],
+    // Bong Special
+    [
+        -22936, -29490, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 19660,
+    ],
+    // Ding Special
+    //[
+    //    -29490, -0x7FFF, -26213, -26213, -0x7FFF, -0x7FFF, 22936, 26213,
+    //],
+    [-29490, -32767, -26214, -26214, -32767, -32767, 22937, 26214],
+    //[-26214, -32767, -19660, -19660, -32767, -32767, 13107, 19660],
+    // Pong+Fah Special
+    ////[-26213, -29490, -29490, -0x7FFF, 22936, 26213, 26213, 29490],
+    //[-22936, -26213, -26213, -0x7FFF, 19660, 22936, 22936, 26213],
+    //[-26214, -13107, -19660, -19660, 26214, 13107, 19660, 19660],
+    //[-29490, -22937, -26214, -26214, 29490, 22937, 26214, 26214],
+    [-27033, -27033, -31948, -31948, 27033, 27033, 31948, 31948],
+    // Ting -> Now Bing
+    //[
+    //    -22936, -0x7FFF, -19660, -19660, -0x7FFF, -0x7FFF, 19660, 22936,
+    //],
+    [
+        -0x7FFF, -22936, -0x7FFF, -29490, -0x7FFF, -0x7FFF, -0x7FFF, 19660,
+    ],
+];
+
+// THESE ARE THE ORIGINAL CORRECT VALUES
 
 //const s16 SPUChannel::PSGTable[8][8] =
 //        {
@@ -11,38 +88,26 @@
 //            {-0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF},
 //            {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}};
 
-use std::{
-    default,
-    fmt::Display,
-    io::Read,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
-
-const PSG_TABLE: [[i16; 8]; 8] = [
+const PREPROGRAMMED_TABLE: [[i16; 8]; 6] = [
+    // Ding-Ding
     [
-        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF,
+        -17383, -28490, -32000, -0x7FFF, -0x7FFF, -0x7FFF, 17021, 27851,
     ],
+    // Pong-Pong
+    [-16383, -28490, -32000, -0x7FFF, 16383, 28490, 32000, 0x7FFF],
+    // Fah-Fah
+    [-16383, -28490, -32000, -0x7FFF, 16383, 28490, 32000, 0x7FFF],
+    // Bong-Bong
     [
-        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF,
+        -16383, -28490, -32000, -0x7FFF, -0x7FFF, -0x7FFF, -32000, 0x7FFF,
     ],
+    // Bing-Bing
     [
-        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
+        -16383, -28490, -32000, -0x7FFF, -0x7FFF, -0x7FFF, -32000, 31000,
     ],
+    // Ting-Ting
     [
-        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
-    ],
-    [
-        -0x7FFF, -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
-    ],
-    [
-        -0x7FFF, -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
-    ],
-    [
-        -0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,
-    ],
-    [
-        -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FF,
+        -30000, -0x7FFF, -0x7FFF, -24383, -30000, -0x7FFF, -32000, 31000,
     ],
 ];
 
@@ -322,7 +387,7 @@ impl SpuChannel {
             self.key_on = true;
 
             println!(
-                "{} Set Cnt: Volume: {}, VolumeShift: {}, Pan: {}, KeyOn: {}\n",
+                "{} Set Cnt: Volume: {}, VolumeShift: {}, Pan: {}, KeyOn: {}",
                 self.num, self.volume, self.volume_shift, self.pan, self.key_on,
             );
         }
@@ -413,7 +478,14 @@ impl SpuChannel {
         let val = self.fifo_read_data::<i16>();
         self.current_sample = val;
 
-        //println!("CURSAMP: {}", self.current_sample);
+        //println!(
+        //    "{} CURSAMP: {}, {}",
+        //    self.num, self.current_sample, self.src_address
+        //);
+
+        //if self.current_sample != 0 {
+        //    assert!([-3712,].contains(&self.current_sample));
+        //}
     }
 
     fn next_sample_adpcm(&mut self) {
@@ -504,6 +576,12 @@ impl SpuChannel {
         self.pos += 1;
         let wave = ((self.control >> 24) & 0x7) as usize;
         let index = (self.pos & 0x7) as usize;
+        //println!(
+        //    "SAMP: {} <-> {}, {}",
+        //    PSG_TABLE[wave][index],
+        //    self.control >> 24,
+        //    self.pos
+        //);
         self.current_sample = PSG_TABLE[wave][index];
     }
 
@@ -539,7 +617,7 @@ impl SpuChannel {
             self.start();
             self.key_on = false;
 
-            println!("KEYED ON:");
+            //println!("KEYED ON:");
         }
 
         //println!("TIMERB: {}", self.timer);
@@ -675,6 +753,14 @@ impl SpuCaptureUnit {
             //    self.fifo_data[self.fifo_read_pos]
             //);
 
+            //assert!(
+            //    [
+            //        0, 4051697664, 4051759488, 243207807, 249499359, 4045410015, 4045467936,
+            //        249557280, 249499359
+            //    ]
+            //    .contains(&self.fifo_data[self.fifo_read_pos])
+            //);
+
             self.fifo_read_pos += 1;
             self.fifo_read_pos &= 0x3;
             self.fifo_level -= 4;
@@ -768,6 +854,8 @@ impl SpuCaptureUnit {
                 self.timer = self.timer_reload as u32 + (self.timer - 0x10000);
 
                 self.fifo_write_data::<i16>(sample as i16);
+                //println!("SAMPLE @@ {}", sample);
+                //assert!([0, -3712, 3711, 3807, -3808, 3839, -3840].contains(&sample));
                 self.pos += 2;
                 if self.pos >= self.length as i32 {
                     if self.fifo_level >= 4 {
@@ -875,7 +963,7 @@ impl Spu {
 
     // DoSaveState
 
-    pub fn mix(&mut self, dummy: u32) {
+    pub fn mix(&mut self, dummy: u32) -> (i16, i16) {
         let mut left = 0;
         let mut right = 0;
         let mut left_output = 0;
@@ -906,7 +994,10 @@ impl Spu {
             let ch2 = self.channels[2].do_run();
             let ch3 = self.channels[3].do_run();
 
-            //println!("chs {}, {}, {}, {}", ch0, ch1, ch2, ch3);
+            // println!("chs {}, {}, {}, {}", ch0, ch1, ch2, ch3);
+            if ch1 != 0 {
+                //assert_eq!(ch1, -7602176);
+            }
 
             self.channels[0].pan_output(ch0, &mut left, &mut right);
             self.channels[2].pan_output(ch2, &mut left, &mut right);
@@ -925,6 +1016,18 @@ impl Spu {
 
                 if i == 4 {
                     //println!("4 Dorun: {}", channel);
+                }
+                if i == 8 {
+                    //println!("8 Dorun: {}", channel);
+                    if channel != 0 {
+                        //assert!(
+                        //    [
+                        //        -15203888, 0, 15203888, 15597092, -15597092, 15728160, -15728160,
+                        //        14810684, -14810684, 15334956, -15334956, 15072820, -15072820
+                        //    ]
+                        //    .contains(&channel)
+                        //);
+                    }
                 }
                 chan.pan_output(channel, &mut left, &mut right);
             }
@@ -1008,7 +1111,7 @@ impl Spu {
             }
         }
 
-        //println!("lrlrlr {}, {}", left_output, right_output);
+        //println!("lrlrlr {}, {}", left_output >> 1, right_output >> 1);
 
         left_output = (left_output * self.master_volume as i32) >> 7;
         right_output = (right_output * self.master_volume as i32) >> 7;
@@ -1016,14 +1119,14 @@ impl Spu {
         left_output >>= 8;
         right_output >>= 8;
 
-        //println!("lrlrlr2 {}, {}", left_output, right_output);
+        //println!("lrlrlr2 {}, {}", left_output >> 1, right_output >> 1);
 
         if self.apply_bias {
             left_output += ((self.bias as i32) << 6) - 0x8000;
             right_output += ((self.bias as i32) << 6) - 0x8000;
         }
 
-        //println!("lrlrlr3 {}, {}", left_output, right_output);
+        //println!("lrlrlr3 {}, {}", left_output >> 1, right_output >> 1);
 
         if left_output < -0x8000 {
             left_output = -0x8000;
@@ -1047,16 +1150,27 @@ impl Spu {
         //    self.output_back_buffer_write_position * 2,
         //    SPU_OUTPUT_BUFFER_SIZE - 1
         //);
-        if self.output_back_buffer_write_position * 2 < SPU_OUTPUT_BUFFER_SIZE - 1 {
-            self.output_back_buffer[self.output_back_buffer_write_position] =
-                (left_output >> 1) as i16;
-            self.output_back_buffer[self.output_back_buffer_write_position + 1] =
-                (right_output >> 1) as i16;
+        //if self.output_back_buffer_write_position * 2 < SPU_OUTPUT_BUFFER_SIZE - 1 {
+        //    let left_write = (left_output >> 1) as i16;
+        //    let right_write = (right_output >> 1) as i16;
+        //
+        //    self.output_back_buffer[self.output_back_buffer_write_position] = left_write;
+        //    self.output_back_buffer[self.output_back_buffer_write_position + 1] = right_write;
+        //
+        //    //println!("qlr {}, {}", left_output >> 1, right_output >> 1);
+        //    if left_output != 0 {
+        //        //assert!([-1856, 1855].contains(&(left_output >> 1)));
+        //    }
+        //
+        //    self.output_back_buffer_write_position += 2;
+        //
+        //    return Some((left_write, right_write));
+        //}
 
-            //println!("qlr {}, {}", left_output, right_output);
+        let left_write = (left_output >> 1) as i16;
+        let right_write = (right_output >> 1) as i16;
 
-            self.output_back_buffer_write_position += 2;
-        }
+        (left_write, right_write)
     }
 
     pub fn transfer_output(&mut self) {
@@ -1374,22 +1488,22 @@ impl Spu {
 
     pub fn set_channel_timer_reload(&mut self, channel: usize, timer_reload: u32) {
         self.channels[channel].set_timer_reload(timer_reload);
-        println!("TM: {}", (timer_reload & 0xFFFF) as u16);
+        //println!("TM: {}", (timer_reload & 0xFFFF) as u16);
     }
 
     pub fn set_channel_loop_pos(&mut self, channel: usize, loop_pos: usize) {
         self.channels[channel].loop_pos = loop_pos;
-        println!("LP: {}", loop_pos);
+        //println!("LP: {}", loop_pos);
     }
 
     pub fn set_channel_length(&mut self, channel: usize, length: usize) {
         self.channels[channel].length = length;
-        println!("LEN: {}", length);
+        // println!("LEN: {}", length);
     }
 
     pub fn set_channel_src_address(&mut self, channel: usize, src_address: usize) {
         self.channels[channel].src_address = src_address;
-        println!("SRC: {}", src_address);
+        //println!("SRC: {}", src_address);
     }
 
     pub fn set_adjusted_channel_pan(&mut self, channel: usize, pan: u8, pan_addition: i32) {
@@ -1407,14 +1521,14 @@ impl Spu {
         let control = self.channels[channel].control;
         let control = (control & 0xFF00FFFF) | ((pan as u32) << 16);
 
-        println!("PAN2");
+        //println!("PAN2");
         self.channels[channel].set_control(control)
     }
 
     pub fn channel_play_note(&mut self, channel: usize, is_repeating: bool) {
         //self.channels[channel].key_on = true;
 
-        self.channels[channel].set_control((self.channels[channel].control & 0x00FFFFFF) | 0);
+        self.channels[channel].set_control(self.channels[channel].control & 0x00FFFFFF);
 
         if is_repeating {
             self.channels[channel]
@@ -1426,8 +1540,21 @@ impl Spu {
         println!("{} PLAY {}", channel, self.channels[channel].control)
     }
 
+    pub fn channel_play_psg(&mut self, channel: usize, table_index: u8) {
+        //self.channels[channel].key_on = true;
+
+        self.channels[channel].set_control(self.channels[channel].control & 0x00FFFFFF);
+        self.channels[channel].set_control(
+            (self.channels[channel].control & 0x00FFFFFF) | (224 + table_index as u32) << 24,
+        );
+        println!(
+            "{} PLAYPSG {} (ti: {})",
+            channel, self.channels[channel].control, table_index
+        )
+    }
+
     pub fn channel_play_noise(&mut self, channel: usize) {
-        self.channels[channel].set_control((self.channels[channel].control & 0x00FFFFFF) | 0);
+        self.channels[channel].set_control(self.channels[channel].control & 0x00FFFFFF);
         self.channels[channel]
             .set_control((self.channels[channel].control & 0x00FFFFFF) | 224 << 24);
     }
@@ -1747,17 +1874,17 @@ mod tests {
         //assert!()
         //spu.channels[4].do_run();
 
+        let mut left = 0;
+
         while spu.channels[1].current_sample == 0 {
             //for _ in 0..100 {
-            spu.mix(1);
-            if spu.output_back_buffer_write_position * 2 >= SPU_OUTPUT_BUFFER_SIZE - 1 {
-                spu.transfer_output();
-            }
+            let out = spu.mix(1);
+            left = out.0;
+            //if spu.output_back_buffer_write_position * 2 >= SPU_OUTPUT_BUFFER_SIZE - 1 {
+            //    spu.transfer_output();
+            //}
         }
 
-        assert_eq!(
-            spu.output_back_buffer[spu.output_back_buffer_write_position - 2],
-            1
-        );
+        assert_eq!(left, 1);
     }
 }

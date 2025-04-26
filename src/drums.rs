@@ -1,4 +1,4 @@
-use crate::split::*;
+use crate::audio::*;
 
 pub fn drum_instructions() -> [RhythmSection; RHYTHM_SECTION_COUNT] {
     [

@@ -1,3 +1,5 @@
+Warning: this project was hacked together and is not tidy. spu.rs is adapted from Spu.cpp and Spu.h from melonDS.
+
 <div align="center">
 
   <h1><code>wasm-pack-template</code></h1>

@@ -38,7 +38,7 @@
             let ramData = await _fetch("ram.bin");
             window.sound_init().then(() => {
                 console.log("HERE")
-                let s = window.play_music(ramData, mioData);
+                let s = window.play_music(ramData, mioData, 1);
                 console.log(s);
             });
         }</script>
