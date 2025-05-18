@@ -1400,7 +1400,7 @@ pub fn instrument_instructions() -> Vec<Instrument> {
                 Adsr {
                     sample: InstrumentSample::PCM16(Sample {
                         volume: (1440, 1200),
-                        base_timer_reload: 63924,
+                        base_timer_reload: 63828,
                         loop_pos: 1288,
                         length: 200,
                         src_address: 34796216,
